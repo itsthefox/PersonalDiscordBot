@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import logging
 from dotenv import load_dotenv
 import os
@@ -9,6 +10,8 @@ token = os.getenv('DISCORD_TOKEN')
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
+client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
 intents.message_content = True
 intents.members = True
 
@@ -18,7 +21,20 @@ secretrole = "sigma"
 
 @bot.event
 async def on_ready():
-    print(f"Online and operational, {bot.user.name}")
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    print("------")
+    try:
+        synced = await bot.tree.sync()  # Sync commands with Discord
+        print(f"Synced {len(synced)} command(s).")
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
+
+# Define a slash command
+@bot.tree.command(name="hello", description="Say hello!")
+async def hello(interaction: discord.Interaction):
+    await interaction.response.send_message(f"Hello, {interaction.user.name}!")
+
+
 
 @bot.event
 async def on_member_join(member):
