@@ -4,6 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 from discord import app_commands
+from discord.app_commands import checks
 from dotenv import load_dotenv
 
 # ---------- config ----------
@@ -34,6 +35,7 @@ async def on_ready():
         else:
             synced = await bot.tree.sync()
         print(f"Logged in as {bot.user} | Synced {len(synced)} app command(s)")
+        await bot.change_presence(activity=discord.Streaming(name="Follow Foxx on Twitch!", url="https://twitch.tv/itsthefox_"))
     except Exception as e:
         print(f"Error syncing commands: {e}")
 
@@ -46,7 +48,7 @@ async def sync(ctx):
         await bot.tree.sync()
     await ctx.send("✅ Slash commands synced.")
 
-# ---------- slash commands ----------
+# ---------- slash command decorators ----------
 # /hello
 if TEST_GUILD:
     @bot.tree.command(name="hello", description="Say hello!", guild=TEST_GUILD)
@@ -57,9 +59,10 @@ else:
     async def hello(interaction: discord.Interaction):
         await interaction.response.send_message(f"Hello, {interaction.user.name}!", ephemeral=True)
 
-# /ban
-def _ban_command_decorators(func):
+# /ban decorator
+def ban_decorators(func):
     func = app_commands.guild_only()(func)
+    func = checks.has_permissions(ban_members=True)(func)
     func = app_commands.default_permissions(ban_members=True)(func)
     func = app_commands.describe(
         member="Member to ban (if still in the server)",
@@ -68,11 +71,11 @@ def _ban_command_decorators(func):
     )(func)
     return func
 
-async def _ban_impl(interaction: discord.Interaction, member: discord.Member | None, user_id: str | None, reason: str):
+async def ban_impl(interaction: discord.Interaction, member: discord.Member | None, user_id: str | None, reason: str):
     await interaction.response.defer(ephemeral=True)
 
     if not member and not user_id:
-        return await interaction.followup.send("Provide either a member or a numeric user_id bro", ephemeral=True)
+        return await interaction.followup.send("gimme either a member or a numeric user_id bro", ephemeral=True)
 
     if member is not None:
         target = member
@@ -91,16 +94,48 @@ async def _ban_impl(interaction: discord.Interaction, member: discord.Member | N
     except discord.HTTPException as e:
         await interaction.followup.send(f"HTTP error while banning: `{e}`", ephemeral=True)
 
+# /kick decorator
+def kick_decorators(func):
+    func = app_commands.default_permissions(kick_members=True)(func)
+    func = app_commands.describe(
+        member = "Member to kick",
+        reason = "Reason for kicking"
+    )(func)
+    return func
+
+async def kick_impl(interaction: discord.Interaction, member: discord.Member | None, reason: str):
+    await interaction.response.defer(ephemeral=True)
+
+    if not member:
+        return await interaction.followup.send("gimme a member to kick bro", ephemeral=True)
+
+    if member is not None:
+        target = member
+        mention = member.mention
+    else: 
+        pass
+
+    try:
+        await interaction.guild.ban(target, reason=reason)
+        await interaction.followup.send(f"PUNTING {mention}\nBECAUSE: **{reason}**", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.followup.send("i need the perms chud", ephemeral=True)
+    except discord.HTTPException as e:
+        await interaction.followup.send(f"HTTP error while banning: `{e}`", ephemeral=True)
+
+# ----------- slash commands ---------- #
+
+# /ban
 if TEST_GUILD:
-    @_ban_command_decorators
     @bot.tree.command(name="ban", description="Ban a kid fr", guild=TEST_GUILD)
+    @ban_decorators
     async def ban(interaction: discord.Interaction, member: discord.Member | None = None, user_id: str | None = None, reason: str = "Reason not specified."):
-        await _ban_impl(interaction, member, user_id, reason)
+        await ban_impl(interaction, member, user_id, reason)
 else:
-    @_ban_command_decorators
     @bot.tree.command(name="ban", description="Ban a kid fr")
+    @ban_decorators
     async def ban(interaction: discord.Interaction, member: discord.Member | None = None, user_id: str | None = None, reason: str = "Reason not specified."):
-        await _ban_impl(interaction, member, user_id, reason)
+        await ban_impl(interaction, member, user_id, reason)
 
 @ban.error
 async def ban_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
@@ -113,6 +148,31 @@ async def ban_error(interaction: discord.Interaction, error: app_commands.AppCom
         await send(f"Command failed: `{error.__cause__}`", ephemeral=True)
     else:
         await send(f"Unexpected error: `{error}`", ephemeral=True)
+
+# /kick
+if TEST_GUILD:
+    @bot.tree.command(name="kick", description="Kick they ahh from the server", guild=TEST_GUILD)
+    @kick_decorators
+    async def kick(interaction: discord.Interaction, member: discord.Member | None = None, reason: str = "Reason not specified."):
+        await kick_impl(interaction, member, reason)
+else:
+    @bot.tree.command(name="kick", description="Kick they ahh from the server")
+    @kick_decorators
+    async def kick(interaction: discord.Interaction, member: discord.Member | None = None, reason: str = "Reason not specified."):
+        await kick_impl(interaction, member, reason)
+
+@kick.error
+async def kick_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    send = interaction.followup.send if interaction.response.is_done() else interaction.response.send_message
+    if isinstance(error, app_commands.MissingPermissions):
+        await send("You don’t have the perms lil bro.", ephemeral=True)
+    elif isinstance(error, app_commands.CheckFailure):
+        await send("This command can only be used in a server idiot", ephemeral=True)
+    elif isinstance(error, app_commands.CommandInvokeError):
+        await send(f"Command failed: `{error.__cause__}`", ephemeral=True)
+    else:
+        await send(f"Unexpected error: `{error}`", ephemeral=True)
+
 
 # ---------- member join ----------
 @bot.event
