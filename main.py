@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import discord
+import datetime
 from discord.ext import commands
 from discord import app_commands
 from discord.app_commands import checks
@@ -173,15 +174,58 @@ async def kick_error(interaction: discord.Interaction, error: app_commands.AppCo
     else:
         await send(f"Unexpected error: `{error}`", ephemeral=True)
 
+# /foxxinfo
+if TEST_GUILD:
+    @bot.tree.command(name="foxx info", description="Learn where to find itsthefox_, the bot owner and creator.", guild=TEST_GUILD)
+    async def foxxinfo(ctx: commands.Context):
+        twitch = "https://www.twitch.tv/itsthefox_"
+        youtube = "https://www.twitch.tv/itsthefox_"
+        github = "https://github.com/itsthefox"
+        twitter = "https://x.com/itsthefoxFPS"
+        discord = "@itsthefox_"
+        embed = discord.Embed(
+            title="Where to Find itsthefox_",
+            description="The bot owner can be found in the links below!",
+            color= discord.Color.from_rgb(247, 4, 93),
+            timestamp=datetime.datetime
+        )
+        embed.add_field(name="Socials", value=f"Twitch: {twitch}\nYouTube: {youtube}\nGitHub: {github}\nTwitter: {twitter}\n Discord: {discord}", inline=False)
+        embed.set_footer(text="Come find me-")
+        await ctx.send(embed=embed)
+
+else:
+    @bot.tree.command(name="foxx info", description="Learn where to find itsthefox_, the bot owner and creator.")
+    async def foxxinfo(ctx: commands.Context):
+        twitch = "https://www.twitch.tv/itsthefox_"
+        youtube = "https://www.twitch.tv/itsthefox_"
+        github = "https://github.com/itsthefox"
+        twitter = "https://x.com/itsthefoxFPS"
+        discord = "@itsthefox_"
+        embed = discord.Embed(
+            title="Where to Find itsthefox_",
+            description="The bot owner can be found in the links below!",
+            color= discord.Color.from_rgb(247, 4, 93),
+            timestamp=datetime.datetime
+        )
+        embed.add_field(name="Socials", value=f"Twitch: {twitch}\nYouTube: {youtube}\nGitHub: {github}\nTwitter: {twitter}\n Discord: {discord}", inline=False)
+        embed.set_footer(text="Come find me...")
+        await ctx.send(embed=embed)
 
 # ---------- member join ----------
+
 @bot.event
 async def on_member_join(member: discord.Member):
     try:
-        await member.mention(f"wsg {member.name}")
+        await member.mention(f"wsg {member.name}.")
     except discord.Forbidden:
         pass 
-
+# ---------- member leave -----------
+@bot.event
+async def on_member_leave(member:discord.Member):
+    try:
+        await member.mention(f"{member.name} has left the server, bum ass")
+    except discord.Forbidden:
+        pass
 # ---------- message filter + prefix commands ----------
 @bot.event # filter
 async def on_message(message: discord.Message):
